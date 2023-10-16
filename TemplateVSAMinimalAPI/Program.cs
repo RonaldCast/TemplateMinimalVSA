@@ -1,6 +1,8 @@
 using Carter;
 using FluentValidation;
+using MediatR;
 using Microsoft.EntityFrameworkCore;
+using TemplateVSAMinimalAPI.Common.Behaviors;
 using TemplateVSAMinimalAPI.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -19,6 +21,9 @@ builder.Services.AddDbContext<AppDbContext>(opt => opt.UseNpgsql(builder.Configu
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+//register Behavivor
+builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(TransactionBehavior<,>));
+
 
 var app = builder.Build();
 
@@ -30,7 +35,5 @@ if (app.Environment.IsDevelopment())
         c.SwaggerEndpoint("/swagger/v1/swagger.json", "Manimal API SVA V1");
     });
 }
-
-
 app.MapCarter();
 app.Run();

@@ -2,12 +2,12 @@
 using AutoMapper.QueryableExtensions;
 using Carter;
 using MediatR;
-using Microsoft.AspNetCore.DataProtection.XmlEncryption;
 using Microsoft.EntityFrameworkCore;
-using System.Collections.Generic;
 using TemplateVSAMinimalAPI.Common.DTOs;
+using TemplateVSAMinimalAPI.Common.Filters;
 using TemplateVSAMinimalAPI.Domain.Entities;
 using TemplateVSAMinimalAPI.Persistence;
+using static TemplateVSAMinimalAPI.Common.Filters.CommonResponseFilter;
 
 namespace TemplateVSAMinimalAPI.Features.Products
 {
@@ -17,14 +17,17 @@ namespace TemplateVSAMinimalAPI.Features.Products
         {
             app.MapGet("products", async (ISender sender) =>
             {
-                return Results.Ok(await sender.Send(new GetProductsQuery()));
-            });
+               return await sender.Send(new GetProductsQuery());
+
+            }).WithTags(nameof(Product))
+            .AddEndpointFilter<CommonResponseFilter>();
+            
       
         }
 
-        public sealed record GetProductsQuery : IRequest<List<ProductResponse>> { }
+        public sealed record GetProductsQuery : IRequest<CommonResponse<List<ProductResponse>>> { }
 
-        public sealed class GetProductsHandler : IRequestHandler<GetProductsQuery, List<ProductResponse>>
+        public sealed class GetProductsHandler : IRequestHandler<GetProductsQuery, CommonResponse<List<ProductResponse>>>
         {
 
             private readonly AppDbContext _context;
@@ -35,10 +38,11 @@ namespace TemplateVSAMinimalAPI.Features.Products
                 _context = context;
                 _mapper = mapper;
             }
-            public async Task<List<ProductResponse>> Handle(GetProductsQuery request, CancellationToken cancellationToken)
+            public async Task<CommonResponse<List<ProductResponse>>> Handle(GetProductsQuery request, CancellationToken cancellationToken)
             {
-                
-                return await _context.Products.ProjectTo<ProductResponse>(_mapper.ConfigurationProvider).ToListAsync();
+                var products =  await _context.Products.ProjectTo<ProductResponse>(_mapper.ConfigurationProvider).ToListAsync(cancellationToken: cancellationToken);
+
+                return new CommonResponse<List<ProductResponse>>(statusCode: StatusCodes.Status200OK, result: products );
             }
         }
 
@@ -46,13 +50,8 @@ namespace TemplateVSAMinimalAPI.Features.Products
         {
             public GetProductsMappingProfile()
             {
-                NewMethod();
-
-                void NewMethod()
-                {
-                    CreateMap<Product, ProductResponse>().ForMember(p => p.CategoryName, opt =>
-                    opt.MapFrom(c => c.Category != null ? c.Category.Name : string.Empty));
-                }
+                CreateMap<Product, ProductResponse>().ForMember(p => p.CategoryName, opt =>
+                opt.MapFrom(c => c.Category != null ? c.Category.Name : string.Empty));
             }
 
         }

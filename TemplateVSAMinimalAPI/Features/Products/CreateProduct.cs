@@ -1,12 +1,18 @@
 ﻿using AutoMapper;
 using AutoMapper.QueryableExtensions;
 using Carter;
+using Carter.ModelBinding;
 using FluentValidation;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using System.ComponentModel.DataAnnotations;
 using TemplateVSAMinimalAPI.Common.DTOs;
+using TemplateVSAMinimalAPI.Common.Exceptions;
+using TemplateVSAMinimalAPI.Common.Filters;
 using TemplateVSAMinimalAPI.Domain.Entities;
 using TemplateVSAMinimalAPI.Persistence;
+using static TemplateVSAMinimalAPI.Common.Filters.CommonResponseFilter;
 
 namespace TemplateVSAMinimalAPI.Features.Products
 {
@@ -16,13 +22,15 @@ namespace TemplateVSAMinimalAPI.Features.Products
         {
             app.MapPost("product", async ([FromBody] CreateProductCommand command, ISender sender) =>
             {
-                return Results.Ok(await sender.Send(command));
-            }).WithTags(nameof(Product));
+                return await sender.Send(command);
+
+            }).WithTags(nameof(Product))
+            .AddEndpointFilter<CommonResponseFilter>();
         }
 
-        public sealed record CreateProductCommand(string Name, string Description, decimal Price, Guid? CategoryId) : IRequest<ProductResponse>;
+        public sealed record CreateProductCommand(string Name, string Description, decimal Price, Guid? CategoryId) : IRequest<CommonResponse<ProductResponse>>;
 
-        public sealed class CreateProductHandler : IRequestHandler<CreateProductCommand, ProductResponse>
+        public sealed class CreateProductHandler : IRequestHandler<CreateProductCommand, CommonResponse<ProductResponse>>
         {
             private readonly AppDbContext _context;
             private readonly IMapper _mapper;
@@ -32,14 +40,19 @@ namespace TemplateVSAMinimalAPI.Features.Products
                 _mapper = mapper;
             }
 
-            public async Task<ProductResponse> Handle(CreateProductCommand request, CancellationToken cancellationToken)
+            public async Task<CommonResponse<ProductResponse>> Handle(CreateProductCommand request, CancellationToken cancellationToken)
             {
+
+                var cartegory = await _context.Categories.FirstOrDefaultAsync(c => c.Id == request.CategoryId, cancellationToken) ??
+                    throw new ResponseException("Category doesn't exist");
+
                 var product = _mapper.Map<Product>(request);
                 _context.Products.Add(product);
 
-                await _context.SaveChangesAsync();
+                await _context.SaveChangesAsync(cancellationToken);
 
-                return _mapper.Map<Product,ProductResponse>(product);
+                return new CommonResponse<ProductResponse>(StatusCodes.Status201Created, _mapper.Map<Product, ProductResponse>(product), 
+                    "Product was correctly created");
 
             }
         }
@@ -51,7 +64,8 @@ namespace TemplateVSAMinimalAPI.Features.Products
             {
                 RuleFor(prop => prop.Name).NotEmpty();
                 RuleFor(prop => prop.Description).NotEmpty();
-                RuleFor(prop => prop.Price).NotEmpty();
+                RuleFor(prop => prop.Price)
+                    .Must(x => x > 0).WithMessage("Must be higher than 0");
                 RuleFor(prop => prop.CategoryId).NotEmpty();
             }
 

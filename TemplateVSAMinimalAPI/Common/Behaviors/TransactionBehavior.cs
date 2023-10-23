@@ -6,7 +6,7 @@ using TemplateVSAMinimalAPI.Persistence;
 
 namespace TemplateVSAMinimalAPI.Common.Behaviors
 {
-    public class TransactionBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse> where  TRequest : IRequest<TRequest>
+    public class TransactionBehavior<TRequest, TResponse> : IPipelineBehavior<TRequest, TResponse> where TRequest : IRequest<TResponse>
     {
 
         private readonly AppDbContext _context;
@@ -41,8 +41,15 @@ namespace TemplateVSAMinimalAPI.Common.Behaviors
 
                 return response;
             }
-            catch
+            catch(ResponseException ex) 
             {
+               _logger.LogError("Request failure:: Where: {@RequestName}, Time: {@Time}, Error: {@Error} ", typeof(TRequest).Name, DateTime.UtcNow, ex.Errors);
+                await _context.RollbackTransaction();
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError("Request failure:: Where: {@RequestName}, Time: {@Time}, Error: {@Error} ", typeof(TRequest).Name, DateTime.UtcNow, ex);
                 await _context.RollbackTransaction();
                 throw;
             }

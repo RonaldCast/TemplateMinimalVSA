@@ -2,11 +2,11 @@ using Carter;
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Serilog;
 using TemplateVSAMinimalAPI.Common.Behaviors;
 using TemplateVSAMinimalAPI.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
-
 
 builder.Services.AddCarter();
 
@@ -24,6 +24,9 @@ builder.Services.AddSwaggerGen();
 //register Behavivor
 builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(TransactionBehavior<,>));
 
+//Configuration Serilog
+builder.Host.UseSerilog((context, configuration) => configuration.ReadFrom
+    .Configuration(context.Configuration));
 
 var app = builder.Build();
 
@@ -35,5 +38,9 @@ if (app.Environment.IsDevelopment())
         c.SwaggerEndpoint("/swagger/v1/swagger.json", "Manimal API SVA V1");
     });
 }
+
+//Log each httpRequest 
+app.UseSerilogRequestLogging();
+
 app.MapCarter();
 app.Run();

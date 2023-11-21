@@ -21,8 +21,6 @@ namespace TemplateVSAMinimalAPI.Features.Products
 
             }).WithTags(nameof(Product))
             .AddEndpointFilter<CommonResponseFilter>();
-            
-      
         }
 
         public sealed record GetProductsQuery : IRequest<CommonResponse<List<ProductResponse>>> { }

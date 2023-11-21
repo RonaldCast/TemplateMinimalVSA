@@ -28,6 +28,17 @@ builder.Services.AddTransient(typeof(IPipelineBehavior<,>), typeof(TransactionBe
 builder.Host.UseSerilog((context, configuration) => configuration.ReadFrom
     .Configuration(context.Configuration));
 
+//cors 
+var _policyCors = "VSApolicy";
+builder.Services.AddCors(options => options.AddPolicy(
+    _policyCors, 
+    build => build.WithOrigins(builder.Configuration["App:Origins"].Split(",", StringSplitOptions.RemoveEmptyEntries)
+    .ToArray()
+    )
+    .AllowAnyHeader()
+    .AllowAnyMethod()
+    .AllowCredentials()));
+
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
@@ -38,6 +49,8 @@ if (app.Environment.IsDevelopment())
         c.SwaggerEndpoint("/swagger/v1/swagger.json", "Manimal API SVA V1");
     });
 }
+
+app.UseCors(_policyCors);
 
 //Log each httpRequest 
 app.UseSerilogRequestLogging();
